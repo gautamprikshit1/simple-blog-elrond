@@ -69,7 +69,7 @@ pub trait EmptyContract {
 
 	require!(blog_post_mapper.item_is_empty(id) == false, "ID not found");
 
-	let blog_post = blog_post_mapper.get();
+	let blog_post = blog_post_mapper.get(id);
 	let author = blog_post.author;
 
 	require!(caller == author, "You are not author of this post");
@@ -101,6 +101,22 @@ pub trait EmptyContract {
     #[view(getPostComments)]
     #[storage_mapper("postComments")]
     fn post_comments(&self, id: usize) -> LinkedListMapper<PostComment<Self::Api>>;
+
+    #[view(proposalStatus)]
+    fn status(&self, id: usize) -> Status {
+	let blog_post_state = self.blog_posts().item_is_empty(id);
+	let is_published = self.is_published(id).get();
+
+	if blog_post_state == true{
+		Status::NotExist
+	}
+	else if blog_post_state == false && is_published == true {
+		Status::Published
+	}
+	else {
+		Status::Private
+	}
+    }
 }
 
 #[derive(TopEncode, TopDecode, TypeAbi)]
@@ -118,4 +134,11 @@ pub struct PostComment<M: ManagedTypeApi> {
     pub user: ManagedAddress<M>,
     pub comment: ManagedBuffer<M>,
     pub comment_time: u64
+}
+
+#[derive(TopEncode, TopDecode, TypeAbi, PartialEq, Eq, Clone, Copy, Debug)]
+pub enum Status {
+    Private
+    Published
+    NotExist
 }
