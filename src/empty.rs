@@ -11,14 +11,18 @@ pub trait EmptyContract {
 
     #[endpoint(createPost)]
     fn create_post(&self, title: ManagedBuffer, content: ManagedBuffer) {
+	let blog_id = self.blog_posts().len() + 1usize;
+	let author = self.blockchain().get_caller();
+
         let post = BlogPost {
-            blog_id: self.blog_posts().len() + 1usize,
+            blog_id,
             upvotes: 0u32,
             title,
-            author: self.blockchain().get_caller(),
+            author,
             content,
         };
         self.blog_posts().push(&post);
+	
     }
 
     #[endpoint(editPost)]
@@ -29,6 +33,7 @@ pub trait EmptyContract {
         title: OptionalValue<ManagedBuffer>,
         content: OptionalValue<ManagedBuffer>,
     ) {
+	let caller = self.blockchain().get_caller();
 	let blog_post_mapper = self.blog_posts();
 
 	require!(blog_post_mapper.item_is_empty(id) == false, "ID not found");
@@ -39,6 +44,10 @@ pub trait EmptyContract {
         } else {
             blog_post.upvotes
         };
+	let author = blog_post.author;
+
+	require!(caller == author, "You are not author of this post");
+
         let updated_post = BlogPost {
             blog_id: id,
             title: OptionalValue::into_option(title).unwrap_or(blog_post.title),
@@ -51,6 +60,15 @@ pub trait EmptyContract {
 
     #[endpoint(deletePost)]
     fn delete_post(&self, id: usize) {
+	let blog_post_mapper = self.blog_posts();
+
+	require!(blog_post_mapper.item_is_empty(id) == false, "ID not found");
+
+	let blog_post = blog_post_mapper.get();
+	let author = blog_post.author;
+
+	require!(caller == author, "You are not author of this post");
+
         self.blog_posts().clear_entry(id);
     }
 
