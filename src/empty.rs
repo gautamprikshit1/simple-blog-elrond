@@ -79,15 +79,28 @@ pub trait EmptyContract {
 
     #[endpoint(commentPost)]
     fn comment_post(&self, id: usize, comment: ManagedBuffer){
+	let user = self.blockchain().get_caller();
+	let comment_time = self.blockchain().get_block_time();
+
 	let blog_post_mapper = self.blog_posts();
 
 	require!(blog_post_mapper.item_is_empty(id) == false, "ID not found");
 
+	let post_comment = PostComment {
+		user,
+		comment,
+		comment_time
+	};
 
-}
+	self.post_comments(id).push_back(post_comment);
+     }
     #[view(getBlogPosts)]
     #[storage_mapper("blogPosts")]
     fn blog_posts(&self) -> VecMapper<BlogPost<Self::Api>>;
+
+    #[view(getPostComments)]
+    #[storage_mapper("postComments")]
+    fn post_comments(&self, id: usize) -> LinkedListMapper<PostComment<Self::Api>>;
 }
 
 #[derive(TopEncode, TopDecode, TypeAbi)]
@@ -98,4 +111,11 @@ pub struct BlogPost<M: ManagedTypeApi> {
     pub author: ManagedAddress<M>,
     pub content: ManagedBuffer<M>,
     pub time: u64
+}
+
+#[derive(TypeAbi, TopEncode, TopDecode, NestedEncode,NestedDecode,Clone)]
+pub struct PostComment<M: ManagedTypeApi> {
+    pub user: ManagedAddress<M>,
+    pub comment: ManagedBuffer<M>,
+    pub comment_time: u64
 }
