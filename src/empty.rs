@@ -77,6 +77,14 @@ pub trait EmptyContract {
         self.blog_posts().clear_entry(id);
     }
 
+    #[endpoint(commentPost)]
+    fn comment_post(&self, id: usize, comment: ManagedBuffer){
+	let blog_post_mapper = self.blog_posts();
+
+	require!(blog_post_mapper.item_is_empty(id) == false, "ID not found");
+
+
+}
     #[view(getBlogPosts)]
     #[storage_mapper("blogPosts")]
     fn blog_posts(&self) -> VecMapper<BlogPost<Self::Api>>;
