@@ -13,6 +13,7 @@ pub trait EmptyContract {
     fn create_post(&self, title: ManagedBuffer, content: ManagedBuffer) {
 	let blog_id = self.blog_posts().len() + 1usize;
 	let author = self.blockchain().get_caller();
+	let time = self.blockchain().get_block_timestamp();
 
         let post = BlogPost {
             blog_id,
@@ -20,6 +21,7 @@ pub trait EmptyContract {
             title,
             author,
             content,
+	    time
         };
         self.blog_posts().push(&post);
 	
@@ -34,6 +36,7 @@ pub trait EmptyContract {
         content: OptionalValue<ManagedBuffer>,
     ) {
 	let caller = self.blockchain().get_caller();
+
 	let blog_post_mapper = self.blog_posts();
 
 	require!(blog_post_mapper.item_is_empty(id) == false, "ID not found");
@@ -45,6 +48,7 @@ pub trait EmptyContract {
             blog_post.upvotes
         };
 	let author = blog_post.author;
+	let time = self.blockchain().get_block_timestamp();
 
 	require!(caller == author, "You are not author of this post");
 
@@ -54,6 +58,7 @@ pub trait EmptyContract {
             author: blog_post.author,
             upvotes: post_upvotes,
             content: OptionalValue::into_option(content).unwrap_or(blog_post.content),
+	    time
         };
         blog_post_mapper.set(id, &updated_post);
     }
@@ -84,4 +89,5 @@ pub struct BlogPost<M: ManagedTypeApi> {
     pub title: ManagedBuffer<M>,
     pub author: ManagedAddress<M>,
     pub content: ManagedBuffer<M>,
+    pub time: u64
 }
