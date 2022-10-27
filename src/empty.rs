@@ -24,7 +24,7 @@ pub trait EmptyContract {
 	    time
         };
         self.blog_posts().push(&post);
-	
+	self.is_published(blog_id).set(false);
     }
 
     #[endpoint(editPost)]
@@ -39,60 +39,70 @@ pub trait EmptyContract {
 
 	let blog_post_mapper = self.blog_posts();
 
-	require!(blog_post_mapper.item_is_empty(id) == false, "ID not found");
+	match self.status(id){
+	Status::NotExist => sc_panic!("ID not found"),
+	Status::Published => sc_panic!("Unable edit Published post"),
+	Status::Private => {
 
-        let blog_post = blog_post_mapper.get(id);
-        let post_upvotes = if upvote {
-            blog_post.upvotes + 1u32
-        } else {
-            blog_post.upvotes
-        };
-	let author = blog_post.author;
-	let time = self.blockchain().get_block_timestamp();
+      		let blog_post = blog_post_mapper.get(id);
+       		let post_upvotes = if upvote {
+           	blog_post.upvotes + 1u32
+       		} else {
+           		blog_post.upvotes
+       			};
+		let author = blog_post.author;
+		let time = self.blockchain().get_block_timestamp();
 
-	require!(caller == author, "You are not author of this post");
+		require!(caller == author, "You are not author of this post");
 
-        let updated_post = BlogPost {
-            blog_id: id,
-            title: OptionalValue::into_option(title).unwrap_or(blog_post.title),
-            author: blog_post.author,
-            upvotes: post_upvotes,
-            content: OptionalValue::into_option(content).unwrap_or(blog_post.content),
-	    time
-        };
-        blog_post_mapper.set(id, &updated_post);
+       		let updated_post = BlogPost {
+           		blog_id: id,
+           		title: OptionalValue::into_option(title).unwrap_or(blog_post.title),
+           		author: blog_post.author,
+           		upvotes: post_upvotes,
+           		content: OptionalValue::into_option(content).unwrap_or(blog_post.content),
+	   		time
+       		};
+       		blog_post_mapper.set(id, &updated_post);
+	}
     }
 
     #[endpoint(deletePost)]
     fn delete_post(&self, id: usize) {
 	let blog_post_mapper = self.blog_posts();
 
-	require!(blog_post_mapper.item_is_empty(id) == false, "ID not found");
+	match self.status(id){
+	Status::NotExist => sc_panic!("ID not found"),
+	Status::Published => sc_panic!("Unable edit Published post"),
+	Status::Private => {
 
-	let blog_post = blog_post_mapper.get(id);
-	let author = blog_post.author;
+		let blog_post = blog_post_mapper.get(id);
+		let author = blog_post.author;
 
-	require!(caller == author, "You are not author of this post");
+		require!(caller == author, "You are not author of this post");
 
-        self.blog_posts().clear_entry(id);
+       		self.blog_posts().clear_entry(id);
+	}
     }
 
     #[endpoint(commentPost)]
     fn comment_post(&self, id: usize, comment: ManagedBuffer){
 	let user = self.blockchain().get_caller();
 	let comment_time = self.blockchain().get_block_time();
+	match self.status(id){
+		Status::NotExist => sc_panic!("ID not found"),
+		Status::Private => sc_panic!("Unable to comment on private post"),
+		Status::Published => {
+			let blog_post_mapper = self.blog_posts();
 
-	let blog_post_mapper = self.blog_posts();
+			let post_comment = PostComment {
+				user,
+				comment,
+				comment_time
+			};
 
-	require!(blog_post_mapper.item_is_empty(id) == false, "ID not found");
-
-	let post_comment = PostComment {
-		user,
-		comment,
-		comment_time
-	};
-
-	self.post_comments(id).push_back(post_comment);
+		self.post_comments(id).push_back(post_comment);
+		}
      }
     #[view(getBlogPosts)]
     #[storage_mapper("blogPosts")]
@@ -101,6 +111,11 @@ pub trait EmptyContract {
     #[view(getPostComments)]
     #[storage_mapper("postComments")]
     fn post_comments(&self, id: usize) -> LinkedListMapper<PostComment<Self::Api>>;
+
+    #[view(getPublishedState)]
+    #[storage_mapper("publishedState")]
+    fn is_published(&self, id: usize) -> SingleValueMapper<bool>;
+
 
     #[view(proposalStatus)]
     fn status(&self, id: usize) -> Status {
