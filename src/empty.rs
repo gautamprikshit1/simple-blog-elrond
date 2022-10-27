@@ -12,8 +12,8 @@ pub trait EmptyContract {
     #[endpoint(createPost)]
     fn create_post(&self, title: ManagedBuffer, content: ManagedBuffer) {
         let post = BlogPost {
-            blog_id: self.blog_posts().len() as u32 + 1,
-            upvotes: 0,
+            blog_id: self.blog_posts().len() + 1usize,
+            upvotes: 0u32,
             title,
             author: self.blockchain().get_caller(),
             content,
@@ -24,14 +24,18 @@ pub trait EmptyContract {
     #[endpoint(editPost)]
     fn edit_post(
         &self,
-        id: u32,
+        id: usize,
         upvote: bool,
         title: OptionalValue<ManagedBuffer>,
         content: OptionalValue<ManagedBuffer>,
     ) {
-        let blog_post = self.blog_posts().get(id as usize);
+	let blog_post_mapper = self.blog_posts();
+
+	require!(blog_post_mapper.item_is_empty(id) == false, "ID not found");
+
+        let blog_post = blog_post_mapper.get(id);
         let post_upvotes = if upvote {
-            blog_post.upvotes + 1
+            blog_post.upvotes + 1u32
         } else {
             blog_post.upvotes
         };
@@ -42,12 +46,12 @@ pub trait EmptyContract {
             upvotes: post_upvotes,
             content: OptionalValue::into_option(content).unwrap_or(blog_post.content),
         };
-        self.blog_posts().set(id as usize, &updated_post);
+        blog_post_mapper.set(id, &updated_post);
     }
 
     #[endpoint(deletePost)]
-    fn delete_post(&self, id: u32) {
-        self.blog_posts().clear_entry(id as usize);
+    fn delete_post(&self, id: usize) {
+        self.blog_posts().clear_entry(id);
     }
 
     #[view(getBlogPosts)]
@@ -57,7 +61,7 @@ pub trait EmptyContract {
 
 #[derive(TopEncode, TopDecode, TypeAbi)]
 pub struct BlogPost<M: ManagedTypeApi> {
-    pub blog_id: u32,
+    pub blog_id: usize,
     pub upvotes: u32,
     pub title: ManagedBuffer<M>,
     pub author: ManagedAddress<M>,
