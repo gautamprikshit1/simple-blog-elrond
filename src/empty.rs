@@ -69,6 +69,7 @@ pub trait EmptyContract {
 
     #[endpoint(deletePost)]
     fn delete_post(&self, id: usize) {
+	let caller = self.blockchain().get_caller();
 	let blog_post_mapper = self.blog_posts();
 
 	match self.status(id){
@@ -104,6 +105,25 @@ pub trait EmptyContract {
 		self.post_comments(id).push_back(post_comment);
 		}
      }
+     
+     #[endpoint(publishPost)]
+     fn publish_post(&self, id: usize){
+	let user = self.blockchain().get_caller();
+	let blog_post_mapper = self.blog_posts();
+	match self.status(id){
+		Status::NotExist => sc_panic!("ID not found"),
+		Status::Published => sc_panic!("Already published"),
+		Status::Private => {
+
+	let blog_post = blog_post_mapper.get(id);
+	let author = blog_post.author;
+
+	require!(caller == author, "You are not author of this post");
+	self.is_published(id).set(true);
+	self.published_posts().set(id, &blog_post);
+}
+     }
+
     #[view(getBlogPosts)]
     #[storage_mapper("blogPosts")]
     fn blog_posts(&self) -> VecMapper<BlogPost<Self::Api>>;
@@ -111,6 +131,10 @@ pub trait EmptyContract {
     #[view(getPostComments)]
     #[storage_mapper("postComments")]
     fn post_comments(&self, id: usize) -> LinkedListMapper<PostComment<Self::Api>>;
+
+    #[view(getPublishedPosts)]
+    #[storage_mapper("publishedPosts")]
+    fn published_posts(&self) -> VecMapper<BlogPost<Self::Api>>;
 
     #[view(getPublishedState)]
     #[storage_mapper("publishedState")]
